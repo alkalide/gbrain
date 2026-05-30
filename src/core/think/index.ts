@@ -403,11 +403,11 @@ export async function runThink(
     // Closes #952 (think over MCP returns "no LLM available").
     const client = opts.client ?? await tryBuildGatewayClient(modelUsed);
     if (!client) {
-      warnings.push('NO_ANTHROPIC_API_KEY');
+      warnings.push('NO_LLM_KEY');
       // Degrade gracefully: return the gather without synthesis. Better than throwing.
       return {
         question: opts.question,
-        answer: '(no LLM available — set ANTHROPIC_API_KEY or pass `client`)',
+        answer: '(no LLM available — configure an API key via gbrain config or env)',
         citations: [],
         gaps: ['no LLM available; gather succeeded but synthesis skipped'],
         pagesGathered: gather.pages.length,
@@ -578,7 +578,7 @@ async function readThinkTrajectoryEnabled(engine: BrainEngine): Promise<boolean>
  */
 async function tryBuildGatewayClient(modelUsed: string): Promise<ThinkLLMClient | null> {
   // Normalize: ensure provider:model shape. resolveModel returns bare
-  // anthropic ids (e.g. `claude-opus-4-7`); gateway.chat needs `anthropic:...`.
+  // model ids (e.g. `claude-opus-4-7`). Default prefix is anthropic for bare ids.
   const modelStr = modelUsed.includes(':') ? modelUsed : `anthropic:${modelUsed}`;
 
   // Availability probe: resolveRecipe throws on unknown provider; assertTouchpoint
@@ -599,7 +599,7 @@ async function tryBuildGatewayClient(modelUsed: string): Promise<ThinkLLMClient 
   // has no key configured. Reads BOTH the gbrain config file (`anthropic_api_key`
   // set via `gbrain config set`) AND the process env, matching gateway's
   // own loadConfig precedence.
-  if (providerId === 'anthropic' && !hasAnthropicKey()) return null;
+  if (!hasProviderKey(providerId)) return null;
 
   return {
     create: async (params): Promise<Anthropic.Message> => {
@@ -656,7 +656,7 @@ function chatResultToMessage(result: ChatResult, modelStr: string): {
     type: 'message',
     role: 'assistant',
     model: modelStr,
-    content: [{ type: 'text', text: result.text }],
+    content: [{ type: 'text', text: sanitizeJsonFromLLM(result.text, modelStr) }],
     usage: {
       input_tokens: result.usage.input_tokens,
       output_tokens: result.usage.output_tokens,
@@ -665,11 +665,36 @@ function chatResultToMessage(result: ChatResult, modelStr: string): {
   };
 }
 
-function hasAnthropicKey(): boolean {
-  if (process.env.ANTHROPIC_API_KEY) return true;
+
+/** Extract clean JSON from LLM output. Non-Anthropic models may wrap
+ *  JSON in markdown code fences. Try to find the JSON content block. */
+function sanitizeJsonFromLLM(raw: string, _modelStr: string): string {
+  const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenceMatch) {
+    const inner = fenceMatch[1].trim();
+    if (inner.startsWith('{') || inner.startsWith('[')) return inner;
+  }
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (jsonMatch) return jsonMatch[0];
+  return raw;
+}
+const PROVIDER_KEY_ENV: Record<string, string> = {
+  anthropic: 'ANTHROPIC_API_KEY',
+  openai: 'OPENAI_API_KEY',
+  deepseek: 'DEEPSEEK_API_KEY',
+  voyage: 'VOYAGE_API_KEY',
+  ollama: 'OLLAMA_API_KEY',
+};
+
+function hasProviderKey(providerId: string): boolean {
+  const envKey = PROVIDER_KEY_ENV[providerId];
+  if (envKey && process.env[envKey]) return true;
+  const genericEnv = `${providerId.toUpperCase()}_API_KEY`;
+  if (process.env[genericEnv]) return true;
   try {
     const cfg = loadConfig();
-    if (cfg?.anthropic_api_key) return true;
+    const configKey = `${providerId}_api_key`;
+    if ((cfg as Record<string, unknown>)[configKey]) return true;
   } catch {
     // loadConfig may throw on first-run installs; treat as no key available.
   }
@@ -706,7 +731,7 @@ function buildGracefulMessage(modelStr: string): {
     type: 'message',
     role: 'assistant',
     model: modelStr,
-    content: [{ type: 'text', text: '(no LLM available — set anthropic_api_key via gbrain config or ANTHROPIC_API_KEY env)' }],
+    content: [{ type: 'text', text: '(no LLM available — configure an API key via gbrain config or env)' }],
     usage: { input_tokens: 0, output_tokens: 0 },
     stop_reason: 'end_turn',
   };
@@ -721,5 +746,5 @@ export const __thinkAdapter = {
   chatResultToMessage,
   mapStopReason,
   buildGracefulMessage,
-  hasAnthropicKey,
+  hasProviderKey,
 };
