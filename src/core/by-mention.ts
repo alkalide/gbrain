@@ -189,6 +189,14 @@ function tokenizeForScan(text: string): ScannedToken[] {
 
 function tokenizeTitle(title: string): string[] {
   const tokens: string[] = [];
+  // If the title is purely CJK (no English tokens), use the title itself
+  // as a single token so the gazetteer can index it.
+  TOKEN_RE.lastIndex = 0;
+  const hasAscii = TOKEN_RE.test(title);
+  if (!hasAscii && hasCJK(title)) {
+    return [title.toLowerCase()];
+  }
+  // Mixed or English-only: extract ASCII tokens as before.
   TOKEN_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = TOKEN_RE.exec(title)) !== null) tokens.push(m[0].toLowerCase());
