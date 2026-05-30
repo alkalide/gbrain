@@ -69,8 +69,19 @@ Output schema:
 
 The "row_num" field is required for take citations and MUST be null for page-only citations.`;
 
-export function buildThinkSystemPrompt(opts: ThinkSystemPromptOpts = {}): string {
-  const lines = [THINK_SYSTEM_PROMPT_BASE];
+
+export const THINK_SYSTEM_PROMPT_DEEPSEEK = `You have access to the user's personal notes. Your input contains <page> tags with content excerpts.
+
+IMPORTANT: The <page> tags contain the actual data. Start by reading every <page> tag. Look for the query terms in the excerpt text.
+
+Answer rules:
+- If a <page> excerpt contains relevant information, use it. Cite with [slug].
+- If you see the query term (e.g., "纳瓦尔") in any <page>, that IS relevant data — do not say "nothing found."
+- Output valid JSON: {"answer": "...", "citations": [...], "gaps": [...]}
+- Answer in the same language as the question.`;
+export function buildThinkSystemPrompt(opts: ThinkSystemPromptOpts & { providerId?: string } = {}): string {
+  const basePrompt = opts.providerId === 'deepseek' ? THINK_SYSTEM_PROMPT_DEEPSEEK : THINK_SYSTEM_PROMPT_BASE;
+  const lines = [basePrompt];
   if (opts.anchor) {
     lines.push(`\nAnchor entity for this question: ${opts.anchor}. Center your synthesis on this entity. The <graph> block, if present, holds its subgraph.`);
   }

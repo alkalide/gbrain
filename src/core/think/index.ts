@@ -370,13 +370,14 @@ export async function runThink(
   const intent = inferIntent(opts.question, opts.anchor);
   const systemPrompt = buildThinkSystemPrompt({
     intent,
+    providerId: modelUsed.split(':')[0],
     ...(opts.anchor !== undefined ? { anchor: opts.anchor } : {}),
     ...(opts.since !== undefined ? { since: opts.since } : {}),
     ...(opts.until !== undefined ? { until: opts.until } : {}),
     willSave: opts.save,
     withCalibration: !!calibrationBlockOpts,
   });
-  const userMessage = buildThinkUserMessage({
+    const userMessage = buildThinkUserMessage({
     question: opts.question,
     pagesBlock,
     takesBlock,

@@ -32,7 +32,7 @@ import {
 } from './query-cache.ts';
 
 export const RRF_K = 60;
-const COMPILED_TRUTH_BOOST = 2.0;
+const COMPILED_TRUTH_BOOST = 3.0;
 const pendingCacheWrites = new Set<Promise<unknown>>();
 
 export async function awaitPendingSearchCacheWrites(): Promise<void> {

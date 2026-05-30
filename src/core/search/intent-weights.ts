@@ -55,8 +55,8 @@ export interface IntentWeights {
 }
 
 const DEFAULT_WEIGHTS: IntentWeights = {
-  keywordWeight: 1.0,
-  vectorWeight: 1.0,
+  keywordWeight: 2.0,
+  vectorWeight: 0.5,
   suggestedRecency: null,
   exactMatchBoost: 1.0,
 };
@@ -65,16 +65,16 @@ const INTENT_WEIGHTS: Record<QueryIntent, IntentWeights> = {
   entity: {
     // Entity queries: "who is X", "tell me about Y". The user knows the
     // name. Reward exact slug/title matches; lean into keyword.
-    keywordWeight: 1.15,
-    vectorWeight: 1.0,
+    keywordWeight: 2.2,
+    vectorWeight: 0.5,
     suggestedRecency: null,
     exactMatchBoost: 1.25,
   },
   temporal: {
     // Temporal queries: "what happened last week", "meeting prep". Recency
     // tilt is the whole game; keyword and vector stay balanced.
-    keywordWeight: 1.0,
-    vectorWeight: 1.0,
+    keywordWeight: 2.0,
+    vectorWeight: 0.5,
     suggestedRecency: 'on',
     exactMatchBoost: 1.0,
   },
@@ -82,8 +82,8 @@ const INTENT_WEIGHTS: Record<QueryIntent, IntentWeights> = {
     // Event queries: "announcement", "launched", "raised $". Named events
     // have rare entity surface forms that keyword search nails (think
     // company names, dollar amounts). Recency gets a soft tilt too.
-    keywordWeight: 1.20,
-    vectorWeight: 0.95,
+    keywordWeight: 2.5,
+    vectorWeight: 0.4,
     suggestedRecency: 'on',
     exactMatchBoost: 1.10,
   },

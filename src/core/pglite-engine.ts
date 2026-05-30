@@ -1570,9 +1570,13 @@ export class PGLiteEngine implements BrainEngine {
     // (length(chunk) - length(replace(chunk, q, ''))) / length(q). Acts as
     // a ts_rank substitute. position()-tiebreaker so earlier-in-chunk hits
     // outrank later ones at the same occurrence count.
+    // v0.41.29-fork: CJK scoring optimizations
+    // - Position weight 10x: earlier matches score much higher
+    // - Log-scaled frequency: more occurrences = higher score (diminishing returns)
     const scoreExpr = `
       ((LENGTH(cc.chunk_text) - LENGTH(REPLACE(cc.chunk_text, $2, ''))) / NULLIF(LENGTH($2), 0)::real
-        + 1.0 / NULLIF(POSITION($2 IN cc.chunk_text), 0)::real)
+        * LN(2.0 + (LENGTH(cc.chunk_text) - LENGTH(REPLACE(cc.chunk_text, $2, ''))) / NULLIF(LENGTH($2), 0)::real)
+        + 10.0 / NULLIF(POSITION($2 IN cc.chunk_text), 0)::real)
       * ${sourceFactorCase}
     `;
 
